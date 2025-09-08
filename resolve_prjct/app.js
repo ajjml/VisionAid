@@ -7,8 +7,6 @@
   let statusText;
   let resultDiv;
   let statusSpinner;
-  let micOverlay;
-  let micOverlayBtn;
 
   // Speech recognition instance
   let recognition = null;
@@ -50,11 +48,6 @@
     }
   }
 
-  function showMicOverlay(show) {
-    if (!micOverlay) return;
-    micOverlay.setAttribute("aria-hidden", show ? "false" : "true");
-  }
-
   function startListening() {
     if (!recognition) return;
     try {
@@ -62,7 +55,6 @@
       recognition.start();
     } catch (e) {
       console.warn("recognition.start blocked:", e);
-      showMicOverlay(true);
     }
   }
 
@@ -73,8 +65,6 @@
     statusText = document.getElementById("statusText");
     resultDiv = document.getElementById("resultDiv");
     statusSpinner = document.getElementById("statusSpinner");
-    micOverlay = document.getElementById("micOverlay");
-    micOverlayBtn = document.getElementById("micOverlayBtn");
 
     if (statusText) {
       statusText.textContent = "Say 'Open camera' or 'What is in front of me?'";
@@ -82,29 +72,15 @@
 
     initSpeechRecognition();
 
-    if (micOverlayBtn) {
-      micOverlayBtn.addEventListener("click", async () => {
-        const granted = await ensureMicPermission();
-        if (granted) {
-          showMicOverlay(false);
-          startListening();
-        } else {
-          if (statusText) statusText.textContent = "Mic is blocked. Allow it in browser settings.";
-        }
-      });
-    }
-
     // Prompt mic permission early (best-effort)
-    const ok = await ensureMicPermission();
-    if (!ok) showMicOverlay(true);
+    await ensureMicPermission();
 
     // Auto-start listening for voice commands
     startListening();
 
     // Fallback: start on first user gesture if auto-start blocked
     const kickstart = async () => {
-      const granted = await ensureMicPermission();
-      if (granted) showMicOverlay(false);
+      await ensureMicPermission();
       startListening();
       window.removeEventListener("pointerdown", kickstart);
       window.removeEventListener("keydown", kickstart);
@@ -131,7 +107,6 @@
     // Lifecycle logs and UI feedback
     recognition.addEventListener("audiostart", () => {
       console.log("audiostart");
-      showMicOverlay(false);
       if (statusText) statusText.textContent = "Listening...";
     });
     recognition.addEventListener("soundstart", () => console.log("soundstart"));
@@ -204,8 +179,7 @@
 
     recognition.addEventListener("error", (event) => {
       console.error("Speech recognition error:", event);
-      showMicOverlay(true);
-      if (statusText) statusText.textContent = "Mic error. Click 'Enable mic', then speak.";
+      if (statusText) statusText.textContent = "Mic error. Click once, check permissions, then speak.";
     });
   }
 
