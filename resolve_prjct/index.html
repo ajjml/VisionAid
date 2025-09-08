@@ -31,13 +31,6 @@
     #resultDiv { font-size: 2rem; font-weight: 700; margin: 1rem 0; }
     #cameraView { display: none; }
     #cameraView[hidden] { display: none; }
-    #listenBtn {
-      position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%);
-      width: 80px; height: 80px; border-radius: 50%;
-      border: none; background: var(--accent); color: #fff;
-      font-weight: 700; font-size: 1rem; box-shadow: 0 10px 24px rgba(0,0,0,0.35);
-      cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none;
-    }
     :focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
 
     /* Spinner */
@@ -54,11 +47,10 @@
     <h1>Vision Assistant</h1>
     <video id="cameraView" aria-label="Camera preview" playsinline autoplay muted hidden></video>
     <div id="statusRow">
-      <div id="statusText" aria-label="Status" role="status" aria-live="polite">Press the button and say "What is in front of me?"</div>
+      <div id="statusText" aria-label="Status" role="status" aria-live="polite">Say "Open camera" or "What is in front of me?"</div>
       <span id="statusSpinner" class="spinner" aria-hidden="true" aria-label="Loading"></span>
     </div>
     <div id="resultDiv" aria-label="Detection results" role="region"></div>
-    <button id="listenBtn" type="button" aria-label="Start listening">Listen</button>
   </main>
 
   <script defer src="app.js"></script>

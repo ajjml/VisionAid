@@ -18,9 +18,9 @@
   let isBusy = false;
 
   // Auto-listen flag after certain actions (e.g., opening camera)
-  let shouldAutoListen = false;
+  let shouldAutoListen = true; // enable continuous listening by default
 
-  const HELP_MESSAGE = "You can say: what's in front, detect objects, or help.";
+  const HELP_MESSAGE = "You can say: open camera, what's in front, detect objects, or help.";
 
   // Utility: speak a message
   function speak(message) {
@@ -44,34 +44,18 @@
     statusSpinner = document.getElementById("statusSpinner");
 
     if (statusText) {
-      statusText.textContent = "Press the button and say 'What is in front of me?'";
+      statusText.textContent = "Say 'Open camera' or 'What is in front of me?'";
     }
 
     initSpeechRecognition();
 
-    // 8) Button Click Handler with haptics and throttle
-    if (listenBtn) {
-      let lastClick = 0;
-      listenBtn.addEventListener("click", () => {
-        const now = Date.now();
-        if (now - lastClick < 800 || isBusy) return; // throttle
-        lastClick = now;
-        if (navigator.vibrate) { try { navigator.vibrate(200); } catch (_) {} }
-        if (!recognition) {
-          alert("Speech recognition not supported in this browser.");
-          return;
-        }
-        listenBtn.disabled = true;
+    // Auto-start listening for voice commands
+    try {
+      if (recognition) {
         if (statusText) statusText.textContent = "Listening...";
-        try { recognition.start(); }
-        catch (e) {
-          console.error(e);
-          speak("Unable to start listening.");
-          listenBtn.disabled = false;
-          if (statusText) statusText.textContent = "Press the button and say 'What is in front of me?'";
-        }
-      });
-    }
+        recognition.start();
+      }
+    } catch (_) {}
   });
 
   // 2) Speech Recognition Setup
@@ -85,14 +69,14 @@
 
     recognition = new SR();
     recognition.lang = "en-US";
-    recognition.continuous = false; // single-shot (we may auto-restart)
+    recognition.continuous = false; // single-shot (we will auto-restart)
     recognition.interimResults = false;
 
     // 3) Voice Command Handling (with help mode)
     recognition.addEventListener("result", async (event) => {
       try {
         const transcript = (event.results?.[0]?.[0]?.transcript || "").toLowerCase();
-        const triggers = [
+        const detectTriggers = [
           "what's in front",
           "whats in front",
           "what is in front",
@@ -101,6 +85,7 @@
         ];
         const helpTriggers = ["help", "what can i say", "what can you do"];
         const openCameraTriggers = ["open camera", "start camera", "turn on camera"];
+        const closeCameraTriggers = ["close camera", "stop camera", "turn off camera"];
 
         if (helpTriggers.some(t => transcript.includes(t))) {
           speak(HELP_MESSAGE);
@@ -112,16 +97,23 @@
           await startCamera({ analyze: false });
           speak("Camera is on. How can I help you?");
           if (statusText) statusText.textContent = "Camera is on. Listening...";
-          shouldAutoListen = true; // keep listening for follow-up commands
+          shouldAutoListen = true;
           return;
         }
 
-        const matched = triggers.some(t => transcript.includes(t));
-        if (matched) {
+        if (closeCameraTriggers.some(t => transcript.includes(t))) {
+          resetApp();
+          speak("Camera is off.");
+          if (statusText) statusText.textContent = "Camera is off. Listening...";
+          shouldAutoListen = true;
+          return;
+        }
+
+        if (detectTriggers.some(t => transcript.includes(t))) {
           await startCamera({ analyze: true });
         } else {
-          speak("Please say 'what's in front' or 'detect objects'.");
-          if (statusText) statusText.textContent = "Press the button and say 'What is in front of me?'";
+          // Not recognized: keep listening silently, maybe give brief hint
+          if (statusText) statusText.textContent = "Listening...";
         }
       } catch (err) {
         console.error(err);
@@ -131,10 +123,8 @@
     });
 
     recognition.addEventListener("end", () => {
-      if (listenBtn) listenBtn.disabled = false;
       if (shouldAutoListen && !isBusy) {
         try {
-          if (listenBtn) listenBtn.disabled = true;
           if (statusText) statusText.textContent = "Listening...";
           recognition.start();
         } catch (_) {}
@@ -143,9 +133,13 @@
 
     recognition.addEventListener("error", (event) => {
       console.error("Speech recognition error:", event);
-      speak("There was an error with speech recognition.");
-      if (statusText) statusText.textContent = "Speech recognition error.";
-      if (listenBtn) listenBtn.disabled = false;
+      if (statusText) statusText.textContent = "Speech recognition error. Retrying...";
+      // Try to resume listening after a short delay
+      setTimeout(() => {
+        if (shouldAutoListen && !isBusy) {
+          try { recognition.start(); } catch (_) {}
+        }
+      }, 800);
     });
   }
 
@@ -191,7 +185,6 @@
 
       cameraView.removeAttribute("hidden");
       cameraView.style.display = "block";
-      if (listenBtn) listenBtn.style.display = "none";
       if (statusText) statusText.textContent = analyze ? "Camera ready." : "Camera on.";
 
       if (analyze) {
@@ -202,7 +195,6 @@
       const msg = (err && err.message) ? err.message : "Unable to access the camera.";
       speak(msg);
       if (statusText) statusText.textContent = msg;
-      if (listenBtn) listenBtn.style.display = "";
     } finally {
       setProcessing(false);
       isBusy = false;
@@ -274,13 +266,8 @@
       cameraView.style.display = "none";
     }
 
-    if (listenBtn) {
-      listenBtn.disabled = false;
-      listenBtn.style.display = "";
-    }
-    if (statusText) statusText.textContent = "Press the button and say 'What is in front of me?'";
+    if (statusText) statusText.textContent = "Say 'Open camera' or 'What is in front of me?'";
     setProcessing(false);
     isBusy = false;
-    shouldAutoListen = false; // stop auto-restart behavior on reset
   }
 })(); 
