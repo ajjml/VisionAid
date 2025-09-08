@@ -17,6 +17,9 @@
   // Throttle flag
   let isBusy = false;
 
+  // Auto-listen flag after certain actions (e.g., opening camera)
+  let shouldAutoListen = false;
+
   const HELP_MESSAGE = "You can say: what's in front, detect objects, or help.";
 
   // Utility: speak a message
@@ -82,7 +85,7 @@
 
     recognition = new SR();
     recognition.lang = "en-US";
-    recognition.continuous = false; // single-shot
+    recognition.continuous = false; // single-shot (we may auto-restart)
     recognition.interimResults = false;
 
     // 3) Voice Command Handling (with help mode)
@@ -97,6 +100,7 @@
           "detect objects"
         ];
         const helpTriggers = ["help", "what can i say", "what can you do"];
+        const openCameraTriggers = ["open camera", "start camera", "turn on camera"];
 
         if (helpTriggers.some(t => transcript.includes(t))) {
           speak(HELP_MESSAGE);
@@ -104,9 +108,17 @@
           return;
         }
 
+        if (openCameraTriggers.some(t => transcript.includes(t))) {
+          await startCamera({ analyze: false });
+          speak("Camera is on. How can I help you?");
+          if (statusText) statusText.textContent = "Camera is on. Listening...";
+          shouldAutoListen = true; // keep listening for follow-up commands
+          return;
+        }
+
         const matched = triggers.some(t => transcript.includes(t));
         if (matched) {
-          await startCamera();
+          await startCamera({ analyze: true });
         } else {
           speak("Please say 'what's in front' or 'detect objects'.");
           if (statusText) statusText.textContent = "Press the button and say 'What is in front of me?'";
@@ -120,6 +132,13 @@
 
     recognition.addEventListener("end", () => {
       if (listenBtn) listenBtn.disabled = false;
+      if (shouldAutoListen && !isBusy) {
+        try {
+          if (listenBtn) listenBtn.disabled = true;
+          if (statusText) statusText.textContent = "Listening...";
+          recognition.start();
+        } catch (_) {}
+      }
     });
 
     recognition.addEventListener("error", (event) => {
@@ -131,7 +150,9 @@
   }
 
   // 4) Camera Access
-  async function startCamera() {
+  async function startCamera(options = { analyze: true }) {
+    const analyze = options && typeof options.analyze === "boolean" ? options.analyze : true;
+
     if (!cameraView || !(cameraView instanceof HTMLVideoElement)) {
       speak("Camera is not available.");
       throw new Error("cameraView element missing");
@@ -171,9 +192,11 @@
       cameraView.removeAttribute("hidden");
       cameraView.style.display = "block";
       if (listenBtn) listenBtn.style.display = "none";
-      if (statusText) statusText.textContent = "Camera ready.";
+      if (statusText) statusText.textContent = analyze ? "Camera ready." : "Camera on.";
 
-      await analyzeImage();
+      if (analyze) {
+        await analyzeImage();
+      }
     } catch (err) {
       console.error(err);
       const msg = (err && err.message) ? err.message : "Unable to access the camera.";
@@ -258,5 +281,6 @@
     if (statusText) statusText.textContent = "Press the button and say 'What is in front of me?'";
     setProcessing(false);
     isBusy = false;
+    shouldAutoListen = false; // stop auto-restart behavior on reset
   }
 })(); 
