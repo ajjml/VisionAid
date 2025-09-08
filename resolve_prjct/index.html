@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vision Assistant</title>
+
+  <style>
+    /* High-contrast, accessible mobile styles */
+    :root {
+      --bg: #222;
+      --fg: #fff;
+      --accent: #0066cc;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      font-size: 1.25rem;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    main { max-width: 48rem; margin: 0 auto; padding: 1rem 1rem 7rem; }
+    h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+    #statusRow { display: flex; align-items: center; gap: 0.5rem; }
+    #statusText { margin: 0.5rem 0; }
+    #resultDiv { font-size: 2rem; font-weight: 700; margin: 1rem 0; }
+    #cameraView { display: none; }
+    #cameraView[hidden] { display: none; }
+    #listenBtn {
+      position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%);
+      width: 80px; height: 80px; border-radius: 50%;
+      border: none; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 1rem; box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+      cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+    :focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
+
+    /* Spinner */
+    .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; display: none; }
+    .spinner[aria-hidden="false"] { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+</head>
+<body>
+  <main>
+    <h1>Vision Assistant</h1>
+    <video id="cameraView" aria-label="Camera preview" playsinline autoplay muted hidden></video>
+    <div id="statusRow">
+      <div id="statusText" aria-label="Status" role="status" aria-live="polite">Press the button and say "What is in front of me?"</div>
+      <span id="statusSpinner" class="spinner" aria-hidden="true" aria-label="Loading"></span>
+    </div>
+    <div id="resultDiv" aria-label="Detection results" role="region"></div>
+    <button id="listenBtn" type="button" aria-label="Start listening">Listen</button>
+  </main>
+
+  <script defer src="app.js"></script>
+</body>
+</html> 
