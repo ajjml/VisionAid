@@ -37,12 +37,26 @@
     .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; display: none; }
     .spinner[aria-hidden="false"] { display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Tap to start overlay */
+    #micOverlay {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.6); color: #fff; z-index: 3; text-align: center; padding: 2rem;
+    }
+    #micOverlay[aria-hidden="false"] { display: flex; }
+    #micOverlay button { background: var(--accent); color: #fff; border: 0; padding: 1rem 1.25rem; border-radius: 999px; font-weight: 700; cursor: pointer; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
 </head>
 <body>
+  <div id="micOverlay" aria-hidden="true" role="dialog" aria-label="Microphone permission">
+    <div>
+      <p>Tap to enable the microphone, then speak.</p>
+      <button type="button" id="micOverlayBtn">Enable mic</button>
+    </div>
+  </div>
   <main>
     <h1>Vision Assistant</h1>
     <video id="cameraView" aria-label="Camera preview" playsinline autoplay muted hidden></video>

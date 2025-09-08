@@ -7,6 +7,8 @@
   let statusText;
   let resultDiv;
   let statusSpinner;
+  let micOverlay;
+  let micOverlayBtn;
 
   // Speech recognition instance
   let recognition = null;
@@ -37,13 +39,20 @@
 
   // Ask for mic permission to avoid auto-start being blocked
   async function ensureMicPermission() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      return true;
     } catch (e) {
       console.warn("Microphone permission not granted yet:", e);
+      return false;
     }
+  }
+
+  function showMicOverlay(show) {
+    if (!micOverlay) return;
+    micOverlay.setAttribute("aria-hidden", show ? "false" : "true");
   }
 
   function startListening() {
@@ -52,8 +61,8 @@
       if (statusText) statusText.textContent = "Listening...";
       recognition.start();
     } catch (e) {
-      // Likely not-allowed or aborted; will try again after user gesture
       console.warn("recognition.start blocked:", e);
+      showMicOverlay(true);
     }
   }
 
@@ -64,6 +73,8 @@
     statusText = document.getElementById("statusText");
     resultDiv = document.getElementById("resultDiv");
     statusSpinner = document.getElementById("statusSpinner");
+    micOverlay = document.getElementById("micOverlay");
+    micOverlayBtn = document.getElementById("micOverlayBtn");
 
     if (statusText) {
       statusText.textContent = "Say 'Open camera' or 'What is in front of me?'";
@@ -71,14 +82,29 @@
 
     initSpeechRecognition();
 
+    if (micOverlayBtn) {
+      micOverlayBtn.addEventListener("click", async () => {
+        const granted = await ensureMicPermission();
+        if (granted) {
+          showMicOverlay(false);
+          startListening();
+        } else {
+          if (statusText) statusText.textContent = "Mic is blocked. Allow it in browser settings.";
+        }
+      });
+    }
+
     // Prompt mic permission early (best-effort)
-    await ensureMicPermission();
+    const ok = await ensureMicPermission();
+    if (!ok) showMicOverlay(true);
 
     // Auto-start listening for voice commands
     startListening();
 
     // Fallback: start on first user gesture if auto-start blocked
-    const kickstart = () => {
+    const kickstart = async () => {
+      const granted = await ensureMicPermission();
+      if (granted) showMicOverlay(false);
       startListening();
       window.removeEventListener("pointerdown", kickstart);
       window.removeEventListener("keydown", kickstart);
@@ -105,6 +131,7 @@
     // Lifecycle logs and UI feedback
     recognition.addEventListener("audiostart", () => {
       console.log("audiostart");
+      showMicOverlay(false);
       if (statusText) statusText.textContent = "Listening...";
     });
     recognition.addEventListener("soundstart", () => console.log("soundstart"));
@@ -113,7 +140,7 @@
     recognition.addEventListener("audioend", () => console.log("audioend"));
     recognition.addEventListener("nomatch", () => {
       console.warn("nomatch");
-      if (resultDiv) resultDiv.textContent = "Heard nothing I could understand."
+      if (resultDiv) resultDiv.textContent = "Heard nothing I could understand.";
     });
 
     // 3) Voice Command Handling (with help mode)
@@ -177,7 +204,8 @@
 
     recognition.addEventListener("error", (event) => {
       console.error("Speech recognition error:", event);
-      if (statusText) statusText.textContent = "Mic error. Click once, check permissions, then speak.";
+      showMicOverlay(true);
+      if (statusText) statusText.textContent = "Mic error. Click 'Enable mic', then speak.";
     });
   }
 
