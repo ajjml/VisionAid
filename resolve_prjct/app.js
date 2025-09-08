@@ -35,8 +35,30 @@
     if (statusSpinner) statusSpinner.setAttribute("aria-hidden", isProcessing ? "false" : "true");
   }
 
+  // Ask for mic permission to avoid auto-start being blocked
+  async function ensureMicPermission() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    } catch (e) {
+      console.warn("Microphone permission not granted yet:", e);
+    }
+  }
+
+  function startListening() {
+    if (!recognition) return;
+    try {
+      if (statusText) statusText.textContent = "Listening...";
+      recognition.start();
+    } catch (e) {
+      // Likely not-allowed or aborted; will try again after user gesture
+      console.warn("recognition.start blocked:", e);
+    }
+  }
+
   // 1) Initialization
-  window.addEventListener("load", () => {
+  window.addEventListener("load", async () => {
     listenBtn = document.getElementById("listenBtn");
     cameraView = document.getElementById("cameraView");
     statusText = document.getElementById("statusText");
@@ -49,13 +71,20 @@
 
     initSpeechRecognition();
 
+    // Prompt mic permission early (best-effort)
+    await ensureMicPermission();
+
     // Auto-start listening for voice commands
-    try {
-      if (recognition) {
-        if (statusText) statusText.textContent = "Listening...";
-        recognition.start();
-      }
-    } catch (_) {}
+    startListening();
+
+    // Fallback: start on first user gesture if auto-start blocked
+    const kickstart = () => {
+      startListening();
+      window.removeEventListener("pointerdown", kickstart);
+      window.removeEventListener("keydown", kickstart);
+    };
+    window.addEventListener("pointerdown", kickstart, { once: true, passive: true });
+    window.addEventListener("keydown", kickstart, { once: true });
   });
 
   // 2) Speech Recognition Setup
@@ -125,22 +154,14 @@
 
     recognition.addEventListener("end", () => {
       if (shouldAutoListen && !isBusy) {
-        try {
-          if (statusText) statusText.textContent = "Listening...";
-          recognition.start();
-        } catch (_) {}
+        startListening();
       }
     });
 
     recognition.addEventListener("error", (event) => {
       console.error("Speech recognition error:", event);
-      if (statusText) statusText.textContent = "Speech recognition error. Retrying...";
-      // Try to resume listening after a short delay
-      setTimeout(() => {
-        if (shouldAutoListen && !isBusy) {
-          try { recognition.start(); } catch (_) {}
-        }
-      }, 800);
+      if (statusText) statusText.textContent = "Speech recognition error. Tap once, then speak.";
+      // Wait for next gesture to re-kick if needed
     });
   }
 
