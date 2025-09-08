@@ -100,11 +100,28 @@
     recognition.lang = "en-US";
     recognition.continuous = false; // single-shot (we will auto-restart)
     recognition.interimResults = false;
+    if (typeof recognition.maxAlternatives === "number") recognition.maxAlternatives = 1;
+
+    // Lifecycle logs and UI feedback
+    recognition.addEventListener("audiostart", () => {
+      console.log("audiostart");
+      if (statusText) statusText.textContent = "Listening...";
+    });
+    recognition.addEventListener("soundstart", () => console.log("soundstart"));
+    recognition.addEventListener("speechstart", () => console.log("speechstart"));
+    recognition.addEventListener("speechend", () => console.log("speechend"));
+    recognition.addEventListener("audioend", () => console.log("audioend"));
+    recognition.addEventListener("nomatch", () => {
+      console.warn("nomatch");
+      if (resultDiv) resultDiv.textContent = "Heard nothing I could understand."
+    });
 
     // 3) Voice Command Handling (with help mode)
     recognition.addEventListener("result", async (event) => {
       try {
         const transcript = (event.results?.[0]?.[0]?.transcript || "").toLowerCase();
+        if (resultDiv) resultDiv.textContent = `Heard: ${transcript}`;
+
         const detectTriggers = [
           "what's in front",
           "whats in front",
@@ -160,8 +177,7 @@
 
     recognition.addEventListener("error", (event) => {
       console.error("Speech recognition error:", event);
-      if (statusText) statusText.textContent = "Speech recognition error. Tap once, then speak.";
-      // Wait for next gesture to re-kick if needed
+      if (statusText) statusText.textContent = "Mic error. Click once, check permissions, then speak.";
     });
   }
 
