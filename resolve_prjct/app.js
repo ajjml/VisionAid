@@ -111,10 +111,11 @@
 
         if (detectTriggers.some(t => transcript.includes(t))) {
           await startCamera({ analyze: true });
-        } else {
-          // Not recognized: keep listening silently, maybe give brief hint
-          if (statusText) statusText.textContent = "Listening...";
+          return;
         }
+
+        // General Q&A fallback
+        await handleGeneralQuestion(transcript);
       } catch (err) {
         console.error(err);
         speak("I encountered an error processing your request.");
@@ -254,7 +255,70 @@
     setTimeout(resetApp, 8000);
   }
 
-  // 7) App Reset
+  // 7) General Q&A
+  async function handleGeneralQuestion(queryText) {
+    const trimmed = String(queryText || "").trim();
+    if (!trimmed) {
+      if (statusText) statusText.textContent = "Listening...";
+      return;
+    }
+
+    // If no API config, inform the user gracefully
+    const cfg = window.AppConfig || {};
+    if (!cfg.apiKey) {
+      const msg = "General Q&A is not configured. Please add your API key.";
+      if (resultDiv) resultDiv.textContent = msg;
+      speak(msg);
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      if (statusText) statusText.textContent = "Thinking...";
+      const answer = await askLLM(trimmed, cfg);
+      if (resultDiv) resultDiv.textContent = answer;
+      speak(answer);
+      if (statusText) statusText.textContent = "Listening...";
+    } catch (e) {
+      console.error(e);
+      const errMsg = "I couldn't get an answer right now.";
+      if (resultDiv) resultDiv.textContent = errMsg;
+      speak(errMsg);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  async function askLLM(prompt, cfg) {
+    const endpoint = cfg.endpoint || "https://api.openai.com/v1/chat/completions";
+    const model = cfg.model || "gpt-3.5-turbo";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${cfg.apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You are a helpful, concise voice assistant." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 256
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(`LLM error: ${res.status}`);
+    }
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content || "I don't have an answer yet.";
+    return text.trim();
+  }
+
+  // 8) App Reset
   function resetApp() {
     // Stop camera
     if (cameraView && cameraView.srcObject && typeof cameraView.srcObject.getTracks === "function") {
