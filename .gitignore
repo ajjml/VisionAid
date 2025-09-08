@@ -1,0 +1,7 @@
+# Local secrets
+resolve_prjct/config.js
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log 
